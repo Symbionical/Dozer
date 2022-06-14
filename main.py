@@ -32,7 +32,7 @@ def main():
 
         # if restuflness is past threshcold and cooldown is not active, begin stimulation and activate cooldown... i chose the threshold of 5 abitraily, i have no idea what would really be a good value as I havent tested this with real data yet
         if restfulness_val > 5.0 and cooldown == 0:
-            stimulations.play_pink_noise()
+            stimulations.stimulate_pink_noise()
             cooldown = 600
 
 if __name__ == "__main__":
