@@ -1,9 +1,16 @@
 import main
+from scipy.stats import zscore
+import numpy as np
+import pandas as pd
+from datetime import datetime
+import time
 
 #imports relevant parts of the API package for extacting and manipulating EEG data 
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, LogLevels, BoardIds
-from brainflow.data_filter import DataFilter, FilterTypes, AggOperations, DetrendOperations
+from brainflow.data_filter import DataFilter, FilterTypes, AggOperations, DetrendOperations, WindowOperations
 from brainflow.ml_model import MLModel, BrainFlowMetrics, BrainFlowClassifiers, BrainFlowModelParams
+
+datalogging = False
 
 board_id = None
 params = None
@@ -63,7 +70,10 @@ def init_bci(_board_type):
     BoardShim.log_message(LogLevels.LEVEL_INFO.value, 'starting stream')
 
     # declare which channels are being used
-    eeg_channels = BoardShim.get_eeg_channels(int(master_board_id))
+    # eeg_channels = BoardShim.get_eeg_channels(int(master_board_id))
+    eeg_channels = [1,2,3,4,5,6,7]
+    print(eeg_channels)
+
 
 def filter_signal(_data, _eeg_channels): # this is for cleaning the data 
     for channel in _eeg_channels:
@@ -82,9 +92,30 @@ def detrend_signal(_data, _eeg_channels): #dont worry about this
     return _data
 
 def update_data():
+    
     global data
-    data = board.get_board_data() # grabs the eeg data currently stored in the boardShim buffer and makes an array called "data"
+    data = []
+    data = board.get_board_data() # grabs the eeg data currently stored in the boardShim buffer and makes an array called "data
     data = filter_signal(data, eeg_channels) # uses the filter signal function above to clean data
+
+    if datalogging == True:
+        _timestamps = []
+        data_to_log = data[eeg_channels]
+        for count in range(data_to_log.shape[1]-1):
+            dt = datetime.now()
+            ts = datetime.timestamp(dt)
+            _timestamps.append(ts)
+
+        timearray = np.array(_timestamps)
+
+        np.append(data_to_log, timearray, axis = 0)
+
+        
+        print(data_to_log.shape)
+
+
+        df = pd.DataFrame(np.transpose(data_to_log))
+        # DataFilter.write_file(data_to_log, 'test.csv', 'a')
 
 # def calculate_psd(_data, _eeg_channels):
 #     for channel in _eeg_channels:
@@ -99,3 +130,51 @@ def get_restfulness(_data, _eeg_channels):
     _restfulness_val = restfulness.predict(feature_vector) # fit data to model and get a prediction value
     restfulness.release() # release the model from the data buffer
     return _restfulness_val #return restfulness value to main
+
+
+# for each 5 second epoch : raw -> z score normalise -> clip between -3 and 3 -> get (alpha/rest of the spectrum) / (theta/rest of the spectrum).
+
+def get_alpha_theta_ratio(_data, _eeg_channels):
+    _alpha_theta_array = []
+
+    for channel in _eeg_channels:
+        # z-score normalise raw data
+        data_zscored = zscore(_data[channel])
+        # clip between -3 and 3
+        data_zscored = np.clip(data_zscored, -3 , 3)
+
+        _psd = DataFilter.get_psd_welch(data_zscored, nfft, nfft // 2, sampling_rate, WindowOperations.BLACKMAN_HARRIS.value) 
+
+        alpha = DataFilter.get_band_power(_psd, 8, 12)
+        theta = DataFilter.get_band_power(_psd, 4, 8)
+
+        _ratio = alpha/theta
+
+        _alpha_theta_array.append(_ratio)
+
+        # # get relative alpha theta ratios for each channel
+        # # Get real amplitudes of FFT (only in postive frequencies)
+        # fft_vals = np.absolute(np.fft.rfft(data_zscored))
+        # # Get frequencies for amplitudes in Hz
+        # fft_freq = np.fft.rfftfreq(len(data_zscored), 1.0/sampling_rate)
+        # print(fft_freq)
+        # freq_ix_theta = np.where((fft_freq >= 4) & (fft_freq <= 8))
+        # print(freq_ix_theta)
+        # freq_ix_alpha = np.where((fft_freq >= 8) & (fft_freq <= 12))
+        # print(freq_ix_alpha)
+        
+        # _ratio_val = np.sum(fft_vals[freq_ix_alpha]) / np.sum(fft_vals[freq_ix_theta])
+
+    _relative_alpha_theta_df = pd.DataFrame([_alpha_theta_array])
+
+    return _relative_alpha_theta_df
+
+def get_sleepieness(_sleepy_class):
+
+    _input = get_alpha_theta_ratio(data,eeg_channels)
+    _sleepiness = _sleepy_class.predict(_input)
+
+    return _sleepiness
+
+
+
