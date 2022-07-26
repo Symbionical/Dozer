@@ -126,19 +126,6 @@ def get_alpha_theta_ratio(_data, _eeg_channels):
 
         _alpha_theta_array.append(_ratio)
 
-        # # get relative alpha theta ratios for each channel
-        # # Get real amplitudes of FFT (only in postive frequencies)
-        # fft_vals = np.absolute(np.fft.rfft(data_zscored))
-        # # Get frequencies for amplitudes in Hz
-        # fft_freq = np.fft.rfftfreq(len(data_zscored), 1.0/sampling_rate)
-        # print(fft_freq)
-        # freq_ix_theta = np.where((fft_freq >= 4) & (fft_freq <= 8))
-        # print(freq_ix_theta)
-        # freq_ix_alpha = np.where((fft_freq >= 8) & (fft_freq <= 12))
-        # print(freq_ix_alpha)
-        
-        # _ratio_val = np.sum(fft_vals[freq_ix_alpha]) / np.sum(fft_vals[freq_ix_theta])
-
     _relative_alpha_theta_df = pd.DataFrame([_alpha_theta_array])
 
     return _relative_alpha_theta_df
