@@ -101,7 +101,7 @@ def update_data():
             _timestamps.append(ts)
 
         timearray = np.array(_timestamps)
-        np.reshape(timearray, [len](timearray), 1)
+        np.reshape(timearray, [len(timearray), 1])
         timearray = np.transpose(timearray)
         stamped_data = np.vstack((data_to_log,timearray))
         today = str(date.today())

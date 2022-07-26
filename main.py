@@ -16,7 +16,6 @@ def main():
     bci.datalogging = True
 
     # MAIN LOOP #
-
     while True:
         
         time.sleep(5) 
